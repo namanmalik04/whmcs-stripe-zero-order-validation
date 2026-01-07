@@ -383,6 +383,20 @@ add_hook('ShoppingCartCheckoutOutput', 1, function ($vars) {
     // Get or determine client ID (may be logged in or new registration)
     $clientId = isset($_SESSION['uid']) ? (int) $_SESSION['uid'] : 0;
 
+    // Check if logged-in user already has a valid Stripe payment method
+    if ($clientId > 0) {
+        $existingPayMethod = Capsule::table('tblpaymethods')
+            ->where('userid', $clientId)
+            ->where('gateway_name', 'stripe')
+            ->whereNull('deleted_at')
+            ->first();
+
+        if ($existingPayMethod) {
+            logActivity("Stripe Zero Order: User #" . $clientId . " has existing payment method, skipping card verification");
+            return '';
+        }
+    }
+
     // For logged-in users, pre-create the setup intent
     $setupIntentData = [];
     $stripeCustomerId = '';
@@ -405,21 +419,33 @@ add_hook('ShoppingCartCheckoutOutput', 1, function ($vars) {
 <!-- Stripe Zero Order Card Validation -->
 <style>
 #stripe-zero-order-container {
-    margin: 20px 0;
+    margin: 15px 0;
     padding: 20px;
     border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #f9f9f9;
+    border-radius: 4px;
+    background: #fff;
+}
+/* Remove duplicate sub-heading styling when inside payment panel */
+.panel-body #stripe-zero-order-container,
+.card-body #stripe-zero-order-container {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
 }
 #stripe-zero-order-container .sub-heading {
-    margin-bottom: 15px;
+    margin: 0 0 15px 0;
+    padding: 0;
 }
 #stripe-zero-order-container .sub-heading span {
-    background: #4a90d9;
-    color: white;
+    display: inline-block;
     padding: 8px 15px;
     border-radius: 4px;
     font-weight: 600;
+}
+/* Use WHMCS theme colors via primary-bg-color class */
+#stripe-zero-order-container .sub-heading span.primary-bg-color {
+    /* Inherits from WHMCS theme */
 }
 #stripe-card-element {
     padding: 12px;
@@ -427,6 +453,12 @@ add_hook('ShoppingCartCheckoutOutput', 1, function ($vars) {
     border-radius: 4px;
     background: white;
     min-height: 40px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+#stripe-card-element:focus-within,
+#stripe-card-element.StripeElement--focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 #stripe-card-errors {
     color: #dc3545;
@@ -435,11 +467,12 @@ add_hook('ShoppingCartCheckoutOutput', 1, function ($vars) {
 }
 .stripe-zero-order-info {
     margin-bottom: 15px;
-    padding: 10px;
+    padding: 12px 15px;
     background: #e7f3ff;
+    border: 1px solid #b8daff;
     border-radius: 4px;
     font-size: 14px;
-    color: #0c5460;
+    color: #004085;
 }
 .stripe-zero-order-info i {
     margin-right: 8px;
@@ -455,6 +488,10 @@ add_hook('ShoppingCartCheckoutOutput', 1, function ($vars) {
 }
 #stripe-zero-order-success i {
     margin-right: 8px;
+}
+/* Ensure proper spacing within WHMCS checkout flow */
+#paymentGatewaysContainer + #stripe-zero-order-container {
+    margin-top: 0;
 }
 </style>
 
@@ -518,43 +555,98 @@ add_hook('ShoppingCartCheckoutOutput', 1, function ($vars) {
                 }
             }
 
-            // Find the payment details section
-            var paymentSection = document.querySelector('.sub-heading span.primary-bg-color');
-            var paymentContainer = null;
-
-            // Find the payment section by looking for "Payment Details" heading
-            var headings = document.querySelectorAll('.sub-heading span.primary-bg-color');
-            for (var i = 0; i < headings.length; i++) {
-                if (headings[i].textContent.indexOf('Payment') !== -1) {
-                    paymentContainer = headings[i].closest('.sub-heading');
-                    break;
-                }
-            }
-
-            if (!paymentContainer) {
-                console.log('Stripe Zero Order: Payment section not found');
-                return;
-            }
-
-            // Create and insert our container after the payment heading
+            // Create our container
             var container = document.createElement('div');
             container.id = 'stripe-zero-order-container';
             container.innerHTML = this.getFormHTML();
 
-            // Insert after the payment gateway container
+            // Try multiple placement strategies for different WHMCS themes
+            var placed = false;
+
+            // Strategy 1: Replace the payment gateway container contents
             var gatewayContainer = document.getElementById('paymentGatewaysContainer');
             if (gatewayContainer) {
+                // Hide the gateway options but keep the container for layout
+                var gatewayContent = gatewayContainer.querySelector('.panel-body, .card-body, > div');
+                if (gatewayContent) {
+                    gatewayContent.style.display = 'none';
+                } else {
+                    gatewayContainer.style.display = 'none';
+                }
+                // Insert our container right after the gateway container
                 gatewayContainer.parentNode.insertBefore(container, gatewayContainer.nextSibling);
-                // Hide the regular payment gateway selection for zero-total orders
-                gatewayContainer.style.display = 'none';
-            } else {
-                paymentContainer.parentNode.insertBefore(container, paymentContainer.nextSibling);
+                placed = true;
             }
 
-            // Hide the credit card input fields (we use our own Stripe Elements)
+            // Strategy 2: Find Payment Details panel/card and insert inside it
+            if (!placed) {
+                var panels = document.querySelectorAll('.panel, .card, .well');
+                for (var i = 0; i < panels.length; i++) {
+                    var panelHeading = panels[i].querySelector('.panel-heading, .card-header, .sub-heading');
+                    if (panelHeading && panelHeading.textContent.indexOf('Payment') !== -1) {
+                        var panelBody = panels[i].querySelector('.panel-body, .card-body');
+                        if (panelBody) {
+                            // Clear existing content and insert our form
+                            panelBody.innerHTML = '';
+                            panelBody.appendChild(container);
+                            placed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Strategy 3: Find by "Payment Details" sub-heading (WHMCS Twenty-One theme)
+            if (!placed) {
+                var headings = document.querySelectorAll('.sub-heading');
+                for (var i = 0; i < headings.length; i++) {
+                    if (headings[i].textContent.indexOf('Payment') !== -1) {
+                        // Find the next sibling container that holds payment content
+                        var nextEl = headings[i].nextElementSibling;
+                        while (nextEl && !nextEl.classList.contains('sub-heading')) {
+                            if (nextEl.id === 'paymentGatewaysContainer' ||
+                                nextEl.querySelector('[name="paymentmethod"]')) {
+                                nextEl.style.display = 'none';
+                                nextEl = nextEl.nextElementSibling;
+                            } else {
+                                break;
+                            }
+                        }
+                        // Insert after the heading
+                        headings[i].parentNode.insertBefore(container, headings[i].nextSibling);
+                        placed = true;
+                        break;
+                    }
+                }
+            }
+
+            // Strategy 4: Fallback - insert before the checkout button
+            if (!placed) {
+                var checkoutBtn = document.querySelector('#btnCompleteOrder, button[type="submit"], .checkout-submit');
+                if (checkoutBtn) {
+                    var btnContainer = checkoutBtn.closest('.form-group, .btn-container, div');
+                    if (btnContainer) {
+                        btnContainer.parentNode.insertBefore(container, btnContainer);
+                        placed = true;
+                    }
+                }
+            }
+
+            if (!placed) {
+                console.log('Stripe Zero Order: Could not find suitable placement for card verification form');
+                return;
+            }
+
+            // Hide any credit card input fields (we use our own Stripe Elements)
             var ccFields = document.getElementById('creditCardInputFields');
             if (ccFields) {
                 ccFields.style.display = 'none';
+            }
+
+            // Also hide any other CC-related fields that might be visible
+            var ccContainers = document.querySelectorAll('.cc-input, .credit-card-fields, [id*="ccInput"], [id*="cardNumber"]');
+            for (var i = 0; i < ccContainers.length; i++) {
+                ccContainers[i].closest('.form-group, .row, div')?.style.display = 'none';
             }
 
             // For zero-order, do NOT select any payment method
